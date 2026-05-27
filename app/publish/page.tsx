@@ -3,7 +3,13 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { type ChangeEvent, type FormEvent, useState } from "react";
+import {
+  type ChangeEvent,
+  type FormEvent,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import {
   contactSubcategories,
   contentSubcategories,
@@ -35,6 +41,12 @@ const fields = [
 ] as const;
 
 type ListingForm = Omit<Listing, "id" | "imageUrls">;
+type SelectedImage = {
+  file: File;
+  previewUrl: string;
+};
+
+const maxListingImages = 3;
 
 const initialForm: ListingForm = {
   title: "",
@@ -49,10 +61,23 @@ const initialForm: ListingForm = {
 export default function PublishPage() {
   const router = useRouter();
   const [form, setForm] = useState<ListingForm>(initialForm);
-  const [images, setImages] = useState<File[]>([]);
-  const [previewUrls, setPreviewUrls] = useState<string[]>([]);
+  const [images, setImages] = useState<SelectedImage[]>([]);
+  const [coverImageIndex, setCoverImageIndex] = useState(0);
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const previewUrlsRef = useRef<string[]>([]);
+
+  useEffect(() => {
+    return () => {
+      previewUrlsRef.current.forEach((previewUrl) =>
+        URL.revokeObjectURL(previewUrl),
+      );
+    };
+  }, []);
+
+  useEffect(() => {
+    previewUrlsRef.current = images.map((image) => image.previewUrl);
+  }, [images]);
 
   function updateField(field: keyof ListingForm, value: string) {
     setForm((currentForm) => {
@@ -82,20 +107,70 @@ export default function PublishPage() {
     });
   }
 
-  async function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(event.target.files ?? []).slice(0, 3);
+  function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
+    const availableSlots = maxListingImages - images.length;
 
-    if (files.length === 0) {
-      previewUrls.forEach((previewUrl) => URL.revokeObjectURL(previewUrl));
-      setImages([]);
-      setPreviewUrls([]);
+    if (availableSlots <= 0) {
+      setError("Solo puedes agregar hasta 3 fotos.");
+      event.target.value = "";
       return;
     }
 
-    previewUrls.forEach((previewUrl) => URL.revokeObjectURL(previewUrl));
-    setImages(files);
-    setPreviewUrls(files.map((file) => URL.createObjectURL(file)));
+    const files = Array.from(event.target.files ?? []).slice(0, availableSlots);
+
+    if (files.length === 0) {
+      event.target.value = "";
+      return;
+    }
+
+    setImages((currentImages) => [
+      ...currentImages,
+      ...files.map((file) => ({
+        file,
+        previewUrl: URL.createObjectURL(file),
+      })),
+    ]);
     setError("");
+    event.target.value = "";
+  }
+
+  function removeImage(index: number) {
+    const imageToRemove = images[index];
+
+    if (imageToRemove) {
+      URL.revokeObjectURL(imageToRemove.previewUrl);
+    }
+
+    const nextImages = images.filter((_, imageIndex) => imageIndex !== index);
+
+    setImages(nextImages);
+    setCoverImageIndex((currentIndex) => {
+      if (nextImages.length <= 1 || currentIndex === index) {
+        return 0;
+      }
+
+      return currentIndex > index ? currentIndex - 1 : currentIndex;
+    });
+    setError("");
+  }
+
+  function getOrderedImages() {
+    if (images.length <= 1) {
+      return images.map((image) => image.file);
+    }
+
+    const coverImage = images[coverImageIndex];
+
+    if (!coverImage) {
+      return images.map((image) => image.file);
+    }
+
+    return [
+      coverImage.file,
+      ...images
+        .filter((_, imageIndex) => imageIndex !== coverImageIndex)
+        .map((image) => image.file),
+    ];
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -132,14 +207,18 @@ export default function PublishPage() {
     try {
       const listing = await createListing({
         ...trimmedForm,
-        images,
+        images: getOrderedImages(),
         attendsTo: form.attendsTo,
       });
       router.push(`/listing/${listing.id}`);
-    } catch {
-      setError(
-        "No se pudo publicar el anuncio. Revisa la conexion e intenta de nuevo.",
-      );
+    } catch (caughtError) {
+      if (caughtError instanceof Error) {
+        setError(caughtError.message);
+      } else {
+        setError(
+          "No se pudo publicar el anuncio. Si agregaste fotos, intenta con archivos mas ligeros.",
+        );
+      }
       setIsSubmitting(false);
     }
   }
@@ -286,8 +365,8 @@ export default function PublishPage() {
               <input
                 type="file"
                 accept="image/*"
-                multiple
                 onChange={handleImageChange}
+                disabled={images.length >= maxListingImages}
                 className="mt-2 min-h-12 w-full rounded-md border border-white/10 bg-[#0B0B0F] px-4 py-3 text-sm text-zinc-300 outline-none transition file:mr-4 file:rounded-md file:border-0 file:bg-[#7B3FE4] file:px-3 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-[#9F6BFF] focus:border-[#9F6BFF]"
               />
               <span className="mt-2 block text-xs leading-5 text-zinc-500">
@@ -295,22 +374,57 @@ export default function PublishPage() {
               </span>
             </label>
 
-            {previewUrls.length > 0 && (
-              <div className="mt-4 grid grid-cols-3 gap-3">
-                {previewUrls.map((imageUrl, index) => (
-                  <div
-                    key={imageUrl}
-                    className="relative aspect-square overflow-hidden rounded-md border border-white/10 bg-[#0B0B0F]"
-                  >
-                    <Image
-                      src={imageUrl}
-                      alt={`Foto seleccionada ${index + 1}`}
-                      fill
-                      unoptimized
-                      className="object-cover"
-                    />
-                  </div>
-                ))}
+            {images.length > 0 && (
+              <div className="mt-4">
+                <p className="text-sm font-semibold text-white">
+                  Selecciona la foto principal del anuncio
+                </p>
+                <p className="mt-1 text-xs leading-5 text-zinc-500">
+                  La foto marcada como Portada será la primera que aparecerá en
+                  el anuncio.
+                </p>
+                <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                  {images.map((image, index) => {
+                    const isCover = coverImageIndex === index;
+
+                    return (
+                      <div key={image.previewUrl} className="space-y-2">
+                        <button
+                          type="button"
+                          onClick={() => setCoverImageIndex(index)}
+                          className={`relative aspect-square w-full overflow-hidden rounded-md border bg-[#0B0B0F] text-left transition ${
+                            isCover
+                              ? "border-[#9F6BFF] ring-2 ring-[#7B3FE4]/45"
+                              : "border-white/10 hover:border-[#7B3FE4]/65"
+                          }`}
+                          aria-pressed={isCover}
+                          aria-label={`Seleccionar foto ${index + 1} como portada`}
+                        >
+                          <Image
+                            src={image.previewUrl}
+                            alt={`Foto seleccionada ${index + 1}`}
+                            fill
+                            sizes="(max-width: 640px) 50vw, 160px"
+                            unoptimized
+                            className="object-cover"
+                          />
+                          {isCover && (
+                            <span className="absolute left-2 top-2 rounded-full bg-[#7B3FE4] px-2 py-1 text-[11px] font-semibold text-white shadow-[0_8px_24px_rgba(0,0,0,0.35)]">
+                              Portada
+                            </span>
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removeImage(index)}
+                          className="min-h-10 w-full rounded-md border border-white/10 px-3 text-xs font-semibold text-zinc-300 transition hover:border-red-300/60 hover:bg-red-950/30 hover:text-red-100"
+                        >
+                          Quitar foto
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
 
