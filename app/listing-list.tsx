@@ -3,7 +3,12 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useState } from "react";
-import { getListings, listingCategories, type Listing } from "@/lib/listings";
+import {
+  formatListingLocation,
+  getListings,
+  listingCategories,
+  type Listing,
+} from "@/lib/listings";
 
 export function ListingList() {
   const [listings, setListings] = useState<Listing[]>([]);
@@ -11,6 +16,18 @@ export function ListingList() {
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("Todos");
+
+  useEffect(() => {
+    const query = new URLSearchParams(window.location.search).get("q");
+
+    if (!query) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => setSearch(query), 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -72,7 +89,9 @@ export function ListingList() {
       listing.title,
       listing.category,
       listing.subcategory,
+      listing.city,
       listing.zone,
+      formatListingLocation(listing),
       listing.description,
       listing.contact,
       ...(listing.attendsTo ?? []),
@@ -83,6 +102,11 @@ export function ListingList() {
 
     return matchesCategory && searchableText.includes(normalizedSearch);
   });
+
+  function handleLocationFilter(city: string) {
+    setSearch(city);
+    window.history.replaceState(null, "", `/?q=${encodeURIComponent(city)}`);
+  }
 
   return (
     <div>
@@ -115,22 +139,23 @@ export function ListingList() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filteredListings.map((listing) => (
-            <Link
+            <article
               key={listing.id}
-              href={`/listing/${listing.id}`}
               className="overflow-hidden rounded-lg border border-white/10 bg-[#1A1A22] transition hover:border-[#7B3FE4]/70 hover:bg-[#20202A]"
             >
-              {listing.imageUrls[0] && (
-                <div className="relative aspect-[4/3] border-b border-white/10 bg-[#0B0B0F]">
-                  <Image
-                    src={listing.imageUrls[0]}
-                    alt={listing.title}
-                    fill
-                    unoptimized
-                    className="object-cover"
-                  />
-                </div>
-              )}
+              <Link href={`/listing/${listing.id}`} className="block">
+                {listing.imageUrls[0] && (
+                  <div className="relative aspect-[4/3] border-b border-white/10 bg-[#0B0B0F]">
+                    <Image
+                      src={listing.imageUrls[0]}
+                      alt={listing.title}
+                      fill
+                      unoptimized
+                      className="object-cover"
+                    />
+                  </div>
+                )}
+              </Link>
               <div className="p-5">
                 <div className="flex flex-wrap gap-2">
                   <span className="rounded-full border border-[#7B3FE4]/40 px-3 py-1 text-xs font-semibold text-[#C7A8FF]">
@@ -141,21 +166,27 @@ export function ListingList() {
                       {listing.subcategory}
                     </span>
                   )}
-                  <span className="rounded-full border border-white/10 px-3 py-1 text-xs font-semibold text-zinc-400">
-                    {listing.zone}
-                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleLocationFilter(listing.city)}
+                    className="rounded-full border border-white/10 px-3 py-1 text-left text-xs font-semibold text-zinc-400 transition hover:border-[#9F6BFF]/70 hover:text-[#C7A8FF]"
+                  >
+                    {formatListingLocation(listing)}
+                  </button>
                 </div>
-                <h3 className="mt-4 text-lg font-semibold leading-snug text-white">
-                  {listing.title}
-                </h3>
-                <p className="mt-3 line-clamp-3 text-sm leading-6 text-zinc-400">
-                  {listing.description}
-                </p>
-                <p className="mt-5 text-sm font-semibold text-[#9F6BFF]">
-                  Ver detalle
-                </p>
+                <Link href={`/listing/${listing.id}`} className="block">
+                  <h3 className="mt-4 text-lg font-semibold leading-snug text-white">
+                    {listing.title}
+                  </h3>
+                  <p className="mt-3 line-clamp-3 text-sm leading-6 text-zinc-400">
+                    {listing.description}
+                  </p>
+                  <p className="mt-5 text-sm font-semibold text-[#9F6BFF]">
+                    Ver detalle
+                  </p>
+                </Link>
               </div>
-            </Link>
+            </article>
           ))}
         </div>
       )}

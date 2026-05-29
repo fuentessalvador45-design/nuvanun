@@ -3,7 +3,11 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useState } from "react";
-import { getListingById, type Listing } from "@/lib/listings";
+import {
+  formatListingLocation,
+  getListingById,
+  type Listing,
+} from "@/lib/listings";
 
 export function ListingDetail({ id }: { id: string }) {
   const [listing, setListing] = useState<Listing | null>(null);
@@ -109,9 +113,12 @@ export function ListingDetail({ id }: { id: string }) {
             {listing.subcategory}
           </span>
         )}
-        <span className="rounded-full border border-white/10 px-3 py-1 text-xs font-semibold text-zinc-400">
-          {listing.zone}
-        </span>
+        <Link
+          href={`/?q=${encodeURIComponent(listing.city)}`}
+          className="rounded-full border border-white/10 px-3 py-1 text-xs font-semibold text-zinc-400 transition hover:border-[#9F6BFF]/70 hover:text-[#C7A8FF]"
+        >
+          {formatListingLocation(listing)}
+        </Link>
         {(listing.attendsTo ?? []).map((option) => (
           <span
             key={option}

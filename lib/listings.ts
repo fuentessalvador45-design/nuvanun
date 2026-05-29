@@ -19,11 +19,27 @@ export const contentSubcategories = ["Fotos", "Video"];
 
 export const professionalAttendsToOptions = ["Mujeres", "Hombres", "Parejas"];
 
+export const locationCities = [
+  "Oaxaca de Juárez",
+  "Santa Cruz Xoxocotlán",
+  "Santa Lucía del Camino",
+  "San Jacinto Amilpas",
+  "Tlacolula",
+  "Etla",
+  "Juchitán",
+  "Salina Cruz",
+  "Puerto Escondido",
+  "Huatulco",
+  "Tuxtepec",
+  "Otro",
+];
+
 export type Listing = {
   id: string;
   title: string;
   category: string;
   subcategory?: string;
+  city: string;
   zone: string;
   description: string;
   contact: string;
@@ -35,6 +51,7 @@ export type NewListingInput = {
   title: string;
   category: string;
   subcategory?: string;
+  city: string;
   zone: string;
   description: string;
   contact: string;
@@ -47,6 +64,7 @@ const mockListings: Listing[] = [
     id: "mock-fotografia-local",
     title: "Servicio de fotografia local",
     category: "Profesionales",
+    city: "Oaxaca de Juárez",
     zone: "Centro",
     description:
       "Sesiones para eventos pequenos, retratos y contenido para negocios locales.",
@@ -59,7 +77,8 @@ const mockListings: Listing[] = [
     title: "Busco conectar para salir por cafe",
     category: "Contactos",
     subcategory: "Mujer busca hombre",
-    zone: "Roma Norte",
+    city: "Oaxaca de Juárez",
+    zone: "Reforma",
     description:
       "Plan tranquilo para conversar, caminar y conocer personas cercanas.",
     contact: "@contacto.local",
@@ -70,7 +89,8 @@ const mockListings: Listing[] = [
     title: "Contenido visual para redes",
     category: "Contenido",
     subcategory: "Fotos",
-    zone: "Del Valle",
+    city: "Santa Lucía del Camino",
+    zone: "Centro",
     description:
       "Paquetes de fotos para perfiles, productos y presencia digital local.",
     contact: "contenido@nuvanun.local",
@@ -108,6 +128,7 @@ export async function createListing(input: NewListingInput): Promise<Listing> {
     title: input.title,
     category: input.category,
     subcategory: input.subcategory,
+    city: input.city,
     zone: input.zone,
     description: input.description,
     contact: input.contact,
@@ -158,6 +179,7 @@ async function tryCreateRemoteListing(
         title: input.title,
         category: input.category,
         subcategory: input.subcategory,
+        city: input.city,
         zone: input.zone,
         description: input.description,
         contact: input.contact,
@@ -166,11 +188,29 @@ async function tryCreateRemoteListing(
       .select("*")
       .single();
 
-    if (error || !data) {
+    if (!error && data) {
+      return mapRemoteListing(data);
+    }
+
+    const legacyInsert = await supabase
+      .from("listings")
+      .insert({
+        title: input.title,
+        category: input.category,
+        subcategory: input.subcategory,
+        zone: formatListingLocation(input),
+        description: input.description,
+        contact: input.contact,
+        image_urls: imageUrls,
+      })
+      .select("*")
+      .single();
+
+    if (legacyInsert.error || !legacyInsert.data) {
       return null;
     }
 
-    return mapRemoteListing(data);
+    return mapRemoteListing(legacyInsert.data);
   } catch {
     return null;
   }
@@ -236,8 +276,14 @@ function getStoredListings() {
 }
 
 function normalizeListing(listing: Listing): Listing {
+  const parsedLocation = parseLegacyLocation(listing.zone);
+  const city = listing.city || parsedLocation.city || listing.zone;
+  const zone = listing.city ? listing.zone : parsedLocation.zone;
+
   return {
     ...listing,
+    city,
+    zone,
     imageUrls: Array.isArray(listing.imageUrls) ? listing.imageUrls : [],
     attendsTo: Array.isArray(listing.attendsTo) ? listing.attendsTo : [],
   };
@@ -260,11 +306,12 @@ function mapRemoteListing(record: Record<string, unknown>): Listing | null {
   const id = getString(record.id);
   const title = getString(record.title);
   const category = getString(record.category);
+  const city = getString(record.city);
   const zone = getString(record.zone);
   const description = getString(record.description);
   const contact = getString(record.contact);
 
-  if (!id || !title || !category || !zone || !description || !contact) {
+  if (!id || !title || !category || !description || !contact) {
     return null;
   }
 
@@ -273,12 +320,26 @@ function mapRemoteListing(record: Record<string, unknown>): Listing | null {
     title,
     category,
     subcategory: getString(record.subcategory) || undefined,
+    city,
     zone,
     description,
     contact,
     imageUrls: getStringArray(record.image_urls),
     attendsTo: getStringArray(record.attends_to),
   });
+}
+
+export function formatListingLocation(listing: Pick<Listing, "city" | "zone">) {
+  return [listing.city, listing.zone].filter(Boolean).join(" · ");
+}
+
+function parseLegacyLocation(location: string) {
+  const [city = "", ...zoneParts] = location.split(" · ");
+
+  return {
+    city,
+    zone: zoneParts.join(" · "),
+  };
 }
 
 function getString(value: unknown) {

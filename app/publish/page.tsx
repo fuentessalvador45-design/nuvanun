@@ -14,7 +14,9 @@ import {
   contactSubcategories,
   contentSubcategories,
   createListing,
+  formatListingLocation,
   listingCategories,
+  locationCities,
   professionalAttendsToOptions,
   type Listing,
 } from "@/lib/listings";
@@ -24,12 +26,6 @@ const fields = [
     name: "title",
     label: "Titulo del anuncio",
     placeholder: "Ej. Servicio de fotografia local",
-    type: "text",
-  },
-  {
-    name: "zone",
-    label: "Zona",
-    placeholder: "Ciudad o colonia",
     type: "text",
   },
   {
@@ -47,11 +43,14 @@ type SelectedImage = {
 };
 
 const maxListingImages = 3;
+const ageConfirmationMessage =
+  "Para publicar anuncios en NUVANUN debes confirmar que eres mayor de edad.";
 
 const initialForm: ListingForm = {
   title: "",
   category: "Contactos",
   subcategory: "",
+  city: "",
   zone: "",
   description: "",
   contact: "",
@@ -63,6 +62,7 @@ export default function PublishPage() {
   const [form, setForm] = useState<ListingForm>(initialForm);
   const [images, setImages] = useState<SelectedImage[]>([]);
   const [coverImageIndex, setCoverImageIndex] = useState(0);
+  const [isAgeConfirmed, setIsAgeConfirmed] = useState(false);
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const previewUrlsRef = useRef<string[]>([]);
@@ -175,13 +175,20 @@ export default function PublishPage() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setIsSubmitting(true);
     setError("");
+
+    if (!isAgeConfirmed) {
+      setError(ageConfirmationMessage);
+      return;
+    }
+
+    setIsSubmitting(true);
 
     const trimmedForm = {
       title: form.title.trim(),
       category: form.category.trim(),
       subcategory: form.subcategory?.trim(),
+      city: form.city.trim(),
       zone: form.zone.trim(),
       description: form.description.trim(),
       contact: form.contact.trim(),
@@ -194,7 +201,7 @@ export default function PublishPage() {
     if (
       !trimmedForm.title ||
       !trimmedForm.category ||
-      !trimmedForm.zone ||
+      !trimmedForm.city ||
       !trimmedForm.description ||
       !trimmedForm.contact ||
       (needsSubcategory && !trimmedForm.subcategory)
@@ -295,6 +302,39 @@ export default function PublishPage() {
                 ))}
               </select>
             </label>
+
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <label className="block">
+                <span className="text-sm font-medium text-white">
+                  Ciudad o Municipio
+                </span>
+                <select
+                  value={form.city}
+                  onChange={(event) => updateField("city", event.target.value)}
+                  className="mt-2 min-h-12 w-full rounded-md border border-white/10 bg-[#0B0B0F] px-4 text-sm text-white outline-none transition focus:border-[#9F6BFF]"
+                >
+                  <option value="">Selecciona una opción</option>
+                  {locationCities.map((city) => (
+                    <option key={city} value={city}>
+                      {city}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="block">
+                <span className="text-sm font-medium text-white">
+                  Colonia o Zona
+                </span>
+                <input
+                  type="text"
+                  value={form.zone}
+                  onChange={(event) => updateField("zone", event.target.value)}
+                  placeholder="Ej. Centro, Reforma, Volcanes, Candiani, San Felipe"
+                  className="mt-2 min-h-12 w-full rounded-md border border-white/10 bg-[#0B0B0F] px-4 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-[#9F6BFF]"
+                />
+              </label>
+            </div>
 
             {form.category !== "Profesionales" && (
               <label className="mt-4 block">
@@ -436,9 +476,16 @@ export default function PublishPage() {
                 {form.description ||
                   "Tu anuncio aparecera con el estilo oscuro premium de NUVANUN, usando acentos violeta y contenido facil de escanear."}
               </p>
-              {(form.category || form.zone) && (
+              {(form.category || form.city || form.zone) && (
                 <p className="mt-3 text-xs font-semibold uppercase tracking-[0.18em] text-[#9F6BFF]">
-                  {[form.category, form.subcategory, form.zone]
+                  {[
+                    form.category,
+                    form.subcategory,
+                    formatListingLocation({
+                      city: form.city,
+                      zone: form.zone,
+                    }),
+                  ]
                     .filter(Boolean)
                     .join(" / ")}
                 </p>
@@ -457,14 +504,49 @@ export default function PublishPage() {
               </p>
             )}
 
+            <label className="mt-5 flex items-start gap-3 rounded-md border border-white/10 bg-[#0B0B0F] p-4 text-sm text-zinc-300">
+              <input
+                type="checkbox"
+                checked={isAgeConfirmed}
+                onChange={(event) => {
+                  setIsAgeConfirmed(event.target.checked);
+
+                  if (event.target.checked && error === ageConfirmationMessage) {
+                    setError("");
+                  }
+                }}
+                className="mt-1 h-4 w-4 shrink-0 accent-[#7B3FE4]"
+              />
+              <span>
+                <span className="block font-semibold text-white">
+                  Confirmo que tengo 18 años o más.
+                </span>
+                <span className="mt-1 block leading-5 text-zinc-500">
+                  Para publicar anuncios en NUVANUN debes confirmar que eres
+                  mayor de edad.
+                </span>
+              </span>
+            </label>
+
             <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="inline-flex min-h-12 flex-1 items-center justify-center rounded-md bg-[#7B3FE4] px-5 py-3 text-sm font-semibold text-white shadow-[0_0_28px_rgba(123,63,228,0.26)] transition hover:bg-[#9F6BFF] disabled:cursor-not-allowed disabled:opacity-60"
+              <div
+                className="flex-1"
+                onClick={() => {
+                  if (!isAgeConfirmed) {
+                    setError(ageConfirmationMessage);
+                  }
+                }}
               >
-                {isSubmitting ? "Publicando..." : "Publicar anuncio"}
-              </button>
+                <button
+                  type="submit"
+                  disabled={!isAgeConfirmed || isSubmitting}
+                  className={`inline-flex min-h-12 w-full items-center justify-center rounded-md bg-[#7B3FE4] px-5 py-3 text-sm font-semibold text-white shadow-[0_0_28px_rgba(123,63,228,0.26)] transition hover:bg-[#9F6BFF] disabled:cursor-not-allowed disabled:opacity-60 ${
+                    !isAgeConfirmed ? "pointer-events-none" : ""
+                  }`}
+                >
+                  {isSubmitting ? "Publicando..." : "Publicar anuncio"}
+                </button>
+              </div>
               <Link
                 href="/"
                 className="inline-flex min-h-12 items-center justify-center rounded-md border border-[#7B3FE4]/45 px-5 py-3 text-sm font-semibold text-white transition hover:border-[#9F6BFF] hover:bg-[#0B0B0F]"
