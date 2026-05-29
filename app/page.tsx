@@ -4,37 +4,37 @@ import { ListingList } from "./listing-list";
 const categories = [
   {
     title: "Contactos",
-    description: "Encuentra personas cercanas y crea conexiones locales con claridad.",
+    description: "Conexiones locales.",
   },
   {
     title: "Profesionales",
-    description: "Descubre servicios, oficios y perfiles disponibles en tu zona.",
+    description: "Servicios cercanos.",
   },
   {
     title: "Contenido",
-    description: "Comparte anuncios, novedades y oportunidades para tu comunidad.",
+    description: "Presencia visual.",
   },
 ];
 
 const steps = [
   {
-    title: "Fluye",
-    description: "Organiza tu anuncio con una estructura limpia y facil de leer.",
-  },
-  {
     title: "Publica",
-    description: "Muestra lo que ofreces o necesitas con una presencia confiable.",
+    description: "Crea tu anuncio en minutos.",
   },
   {
     title: "Conecta",
-    description: "Abre conversaciones directas con personas de tu comunidad.",
+    description: "Haz visible tu propuesta local.",
+  },
+  {
+    title: "Fluye",
+    description: "Mantén todo simple y directo.",
   },
 ];
 
 export default function Home() {
   return (
     <main className="min-h-screen bg-[#0B0B0F] text-[#FFFFFF]">
-      <section className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-5 py-6 sm:px-8 lg:px-10">
+      <section className="mx-auto w-full max-w-6xl px-5 py-5 sm:px-8 lg:px-10">
         <header className="flex items-center justify-between py-2">
           <Link
             href="/"
@@ -51,94 +51,31 @@ export default function Home() {
           </Link>
         </header>
 
-        <div className="flex flex-1 flex-col justify-center py-16 sm:py-20">
-          <div className="max-w-3xl">
-            <p className="mb-4 text-sm font-medium uppercase tracking-[0.22em] text-[#9F6BFF]">
-              Fluye. Publica. Conecta.
+        <div className="py-10 text-center sm:py-14">
+          <div className="mx-auto max-w-3xl">
+            <p className="text-xs font-semibold uppercase tracking-[0.46em] text-[#C7A8FF] sm:text-sm">
+              NUVANUN
             </p>
-            <h1 className="text-4xl font-semibold leading-tight text-white sm:text-5xl lg:text-6xl">
-              Anuncios locales con una experiencia simple, moderna y confiable
+            <h1 className="mt-5 text-3xl font-semibold tracking-normal text-white sm:text-5xl">
+              PUBLICA • CONECTA • FLUYE
             </h1>
-            <p className="mt-5 max-w-xl text-base leading-7 text-zinc-300 sm:text-lg">
-              NUVANUN conecta personas, servicios y oportunidades en un espacio
-              oscuro, fluido y facil de explorar.
+            <p className="mx-auto mt-4 max-w-lg text-sm leading-6 text-zinc-300 sm:text-base">
+              Anuncios locales en una experiencia oscura, directa y facil de
+              explorar.
             </p>
 
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+            <div className="mt-7 flex justify-center">
               <Link
                 href="/publish"
-                className="inline-flex min-h-12 items-center justify-center rounded-md bg-[#7B3FE4] px-5 py-3 text-sm font-semibold text-white shadow-[0_0_28px_rgba(123,63,228,0.28)] transition hover:bg-[#9F6BFF]"
+                className="inline-flex min-h-12 w-full items-center justify-center rounded-md bg-[#7B3FE4] px-6 py-3 text-sm font-semibold text-white shadow-[0_0_28px_rgba(123,63,228,0.28)] transition hover:bg-[#9F6BFF] sm:w-auto"
               >
                 Publicar anuncio
               </Link>
-              <a
-                href="#categorias"
-                className="inline-flex min-h-12 items-center justify-center rounded-md border border-[#7B3FE4]/45 px-5 py-3 text-sm font-semibold text-white transition hover:border-[#9F6BFF] hover:bg-[#1A1A22]"
-              >
-                Explorar
-              </a>
             </div>
           </div>
         </div>
 
-        <section id="categorias" className="scroll-mt-8 py-12 sm:py-16">
-          <div className="mb-6">
-            <p className="text-sm font-medium uppercase tracking-[0.2em] text-[#9F6BFF]">
-              Descubre
-            </p>
-            <h2 className="mt-2 text-2xl font-semibold text-white">
-              Categorias
-            </h2>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-3">
-            {categories.map((category) => (
-              <article
-                key={category.title}
-                className="rounded-lg border border-white/10 bg-[#1A1A22] p-5 transition hover:border-[#7B3FE4]/60"
-              >
-                <h3 className="text-lg font-semibold text-white">
-                  {category.title}
-                </h3>
-                <p className="mt-3 text-sm leading-6 text-zinc-400">
-                  {category.description}
-                </p>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        <section className="py-12 sm:py-16">
-          <div className="mb-6">
-            <p className="text-sm font-medium uppercase tracking-[0.2em] text-[#9F6BFF]">
-              Proceso
-            </p>
-            <h2 className="mt-2 text-2xl font-semibold text-white">
-              Como funciona
-            </h2>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-3">
-            {steps.map((step, index) => (
-              <article
-                key={step.title}
-                className="border-t border-white/10 pt-5"
-              >
-                <span className="text-sm font-semibold text-[#7B3FE4]">
-                  0{index + 1}
-                </span>
-                <h3 className="mt-3 text-lg font-semibold text-white">
-                  {step.title}
-                </h3>
-                <p className="mt-3 text-sm leading-6 text-zinc-400">
-                  {step.description}
-                </p>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        <section className="py-12 sm:py-16">
+        <section className="py-6 sm:py-8">
           <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <p className="text-sm font-medium uppercase tracking-[0.2em] text-[#9F6BFF]">
@@ -157,6 +94,40 @@ export default function Home() {
           </div>
 
           <ListingList />
+        </section>
+
+        <section id="categorias" className="scroll-mt-8 py-10 sm:py-12">
+          <div className="grid gap-3 sm:grid-cols-3">
+            {categories.map((category) => (
+              <article
+                key={category.title}
+                className="rounded-lg border border-white/10 bg-[#121218] p-4 shadow-[0_18px_45px_rgba(0,0,0,0.22)] transition hover:border-[#7B3FE4]/60"
+              >
+                <h2 className="text-base font-semibold text-white">
+                  {category.title}
+                </h2>
+                <p className="mt-2 text-sm leading-6 text-zinc-400">
+                  {category.description}
+                </p>
+              </article>
+            ))}
+          </div>
+
+          <div className="mt-6 grid gap-3 sm:grid-cols-3">
+            {steps.map((step, index) => (
+              <article key={step.title} className="border-t border-white/10 pt-4">
+                <span className="text-xs font-semibold text-[#7B3FE4]">
+                  0{index + 1}
+                </span>
+                <h2 className="mt-2 text-base font-semibold text-white">
+                  {step.title}
+                </h2>
+                <p className="mt-2 text-sm leading-6 text-zinc-400">
+                  {step.description}
+                </p>
+              </article>
+            ))}
+          </div>
         </section>
       </section>
     </main>
