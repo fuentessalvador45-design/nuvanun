@@ -46,6 +46,12 @@ export type Listing = {
   contact: string;
   imageUrls: string[];
   attendsTo?: string[];
+  userStatus?: "invitado" | "registrado";
+  nombreVisible?: string;
+  emailContact?: string;
+  phoneContact?: string;
+  contactMethod?: string;
+  isFeatured?: boolean;
 };
 
 export type NewListingInput = {
@@ -59,6 +65,11 @@ export type NewListingInput = {
   images: File[];
   attendsTo?: string[];
   ownerId?: string;
+  userStatus?: "invitado" | "registrado";
+  nombreVisible?: string;
+  emailContact?: string;
+  phoneContact?: string;
+  contactMethod?: string;
 };
 
 const mockListings: Listing[] = [
@@ -137,6 +148,11 @@ export async function createListing(input: NewListingInput): Promise<Listing> {
     contact: input.contact,
     imageUrls,
     attendsTo: input.attendsTo ?? [],
+    userStatus: input.userStatus ?? "invitado",
+    nombreVisible: input.nombreVisible,
+    emailContact: input.emailContact,
+    phoneContact: input.phoneContact,
+    contactMethod: input.contactMethod,
   };
 
   storeListing(listing);
@@ -188,12 +204,17 @@ async function tryCreateRemoteListing(
         description: input.description,
         contact: input.contact,
         image_urls: imageUrls,
+        user_status: input.userStatus ?? "invitado",
+        nombre_visible: input.nombreVisible,
+        email_contact: input.emailContact,
+        phone_contact: input.phoneContact,
+        contact_method: input.contactMethod,
       })
       .select("*")
       .single();
 
     if (!error && data) {
-      return mapRemoteListing(data);
+      return withInputMetadata(mapRemoteListing(data), input);
     }
 
     const legacyInsert = await supabase
@@ -214,7 +235,7 @@ async function tryCreateRemoteListing(
       return null;
     }
 
-    return mapRemoteListing(legacyInsert.data);
+    return withInputMetadata(mapRemoteListing(legacyInsert.data), input);
   } catch {
     return null;
   }
@@ -331,7 +352,32 @@ function mapRemoteListing(record: Record<string, unknown>): Listing | null {
     contact,
     imageUrls: getStringArray(record.image_urls),
     attendsTo: getStringArray(record.attends_to),
+    userStatus: getUserStatus(record.user_status),
+    nombreVisible: getString(record.nombre_visible) || undefined,
+    emailContact: getString(record.email_contact) || undefined,
+    phoneContact: getString(record.phone_contact) || undefined,
+    contactMethod: getString(record.contact_method) || undefined,
+    isFeatured: record.is_featured === true,
   });
+}
+
+function withInputMetadata(
+  listing: Listing | null,
+  input: NewListingInput,
+): Listing | null {
+  if (!listing) {
+    return null;
+  }
+
+  return {
+    ...listing,
+    ownerId: listing.ownerId ?? input.ownerId,
+    userStatus: listing.userStatus ?? input.userStatus ?? "invitado",
+    nombreVisible: listing.nombreVisible ?? input.nombreVisible,
+    emailContact: listing.emailContact ?? input.emailContact,
+    phoneContact: listing.phoneContact ?? input.phoneContact,
+    contactMethod: listing.contactMethod ?? input.contactMethod,
+  };
 }
 
 export function formatListingLocation(listing: Pick<Listing, "city" | "zone">) {
@@ -355,6 +401,14 @@ function getStringArray(value: unknown) {
   return Array.isArray(value)
     ? value.filter((item): item is string => typeof item === "string")
     : [];
+}
+
+function getUserStatus(value: unknown) {
+  if (value === "registrado" || value === "invitado") {
+    return value;
+  }
+
+  return undefined;
 }
 
 function getFileExtension(file: File) {

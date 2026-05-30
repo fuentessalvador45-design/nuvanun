@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { AuthStatus } from "@/app/auth-status";
 import { useAuth } from "@/app/auth-provider";
+import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import {
   type ChangeEvent,
   type FormEvent,
@@ -43,6 +44,16 @@ type SelectedImage = {
   file: File;
   previewUrl: string;
 };
+type PublishAction = "guest" | "registered";
+type ContactMethod = "Correo" | "WhatsApp" | "Ambos";
+type RegisterForm = {
+  nombreVisible: string;
+  email: string;
+  password: string;
+  confirmPassword: string;
+  phone: string;
+  contactMethod: ContactMethod;
+};
 
 const maxListingImages = 3;
 const ageConfirmationMessage =
@@ -59,6 +70,15 @@ const initialForm: ListingForm = {
   attendsTo: [],
 };
 
+const initialRegisterForm: RegisterForm = {
+  nombreVisible: "",
+  email: "",
+  password: "",
+  confirmPassword: "",
+  phone: "",
+  contactMethod: "Ambos",
+};
+
 export default function PublishPage() {
   const router = useRouter();
   const { accessLevel, user } = useAuth();
@@ -66,8 +86,13 @@ export default function PublishPage() {
   const [images, setImages] = useState<SelectedImage[]>([]);
   const [coverImageIndex, setCoverImageIndex] = useState(0);
   const [isAgeConfirmed, setIsAgeConfirmed] = useState(false);
+  const [isRegisterSectionOpen, setIsRegisterSectionOpen] = useState(false);
+  const [registerForm, setRegisterForm] =
+    useState<RegisterForm>(initialRegisterForm);
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submittingAction, setSubmittingAction] =
+    useState<PublishAction | null>(null);
   const previewUrlsRef = useRef<string[]>([]);
 
   useEffect(() => {
@@ -95,6 +120,16 @@ export default function PublishPage() {
 
       return { ...currentForm, [field]: value };
     });
+  }
+
+  function updateRegisterField(
+    field: keyof RegisterForm,
+    value: string | ContactMethod,
+  ) {
+    setRegisterForm((currentForm) => ({
+      ...currentForm,
+      [field]: value,
+    }));
   }
 
   function toggleAttendsTo(option: string) {
@@ -180,12 +215,17 @@ export default function PublishPage() {
     event.preventDefault();
     setError("");
 
+    const nativeEvent = event.nativeEvent as SubmitEvent;
+    const submitter = nativeEvent.submitter as HTMLButtonElement | null;
+    const action = submitter?.value === "registered" ? "registered" : "guest";
+
     if (!isAgeConfirmed) {
       setError(ageConfirmationMessage);
       return;
     }
 
     setIsSubmitting(true);
+    setSubmittingAction(action);
 
     const trimmedForm = {
       title: form.title.trim(),
@@ -211,15 +251,69 @@ export default function PublishPage() {
     ) {
       setError("Completa todos los campos para publicar.");
       setIsSubmitting(false);
+      setSubmittingAction(null);
       return;
     }
 
+    const trimmedRegisterForm = {
+      nombreVisible: registerForm.nombreVisible.trim(),
+      email: registerForm.email.trim(),
+      password: registerForm.password,
+      confirmPassword: registerForm.confirmPassword,
+      phone: registerForm.phone.trim(),
+      contactMethod: registerForm.contactMethod,
+    };
+
+    if (action === "registered") {
+      if (
+        !trimmedRegisterForm.nombreVisible ||
+        !trimmedRegisterForm.email ||
+        !trimmedRegisterForm.password ||
+        !trimmedRegisterForm.confirmPassword
+      ) {
+        setError("Completa los datos de registro para crear tu cuenta.");
+        setIsSubmitting(false);
+        setSubmittingAction(null);
+        return;
+      }
+
+      if (trimmedRegisterForm.password.length < 6) {
+        setError("La contraseña debe tener al menos 6 caracteres.");
+        setIsSubmitting(false);
+        setSubmittingAction(null);
+        return;
+      }
+
+      if (trimmedRegisterForm.password !== trimmedRegisterForm.confirmPassword) {
+        setError("Las contraseñas no coinciden.");
+        setIsSubmitting(false);
+        setSubmittingAction(null);
+        return;
+      }
+    }
+
     try {
+      const registeredUserId =
+        action === "registered"
+          ? await createAccountIfAvailable(trimmedRegisterForm)
+          : undefined;
       const listing = await createListing({
         ...trimmedForm,
         images: getOrderedImages(),
         attendsTo: form.attendsTo,
-        ownerId: user?.id,
+        ownerId:
+          action === "registered" ? registeredUserId ?? user?.id : undefined,
+        userStatus: action === "registered" ? "registrado" : "invitado",
+        nombreVisible:
+          action === "registered" ? trimmedRegisterForm.nombreVisible : undefined,
+        emailContact:
+          action === "registered" ? trimmedRegisterForm.email : undefined,
+        phoneContact:
+          action === "registered" ? trimmedRegisterForm.phone : undefined,
+        contactMethod:
+          action === "registered"
+            ? trimmedRegisterForm.contactMethod
+            : inferContactMethod(trimmedForm.contact),
       });
       router.push(`/listing/${listing.id}`);
     } catch (caughtError) {
@@ -231,7 +325,60 @@ export default function PublishPage() {
         );
       }
       setIsSubmitting(false);
+      setSubmittingAction(null);
     }
+  }
+
+  async function createAccountIfAvailable(accountForm: {
+    nombreVisible: string;
+    email: string;
+    password: string;
+    phone: string;
+    contactMethod: ContactMethod;
+  }) {
+    if (!supabase || !isSupabaseConfigured()) {
+      return undefined;
+    }
+
+    const { data, error: authError } = await supabase.auth.signUp({
+      email: accountForm.email,
+      password: accountForm.password,
+      options: {
+        data: {
+          full_name: accountForm.nombreVisible,
+          phone: accountForm.phone,
+          preferred_contact_method: accountForm.contactMethod,
+        },
+      },
+    });
+
+    if (authError) {
+      throw new Error(authError.message || "No se pudo crear la cuenta.");
+    }
+
+    return data.user?.id;
+  }
+
+  function inferContactMethod(contact: string): ContactMethod | undefined {
+    const normalizedContact = contact.toLowerCase();
+    const hasEmail = /\S+@\S+\.\S+/.test(normalizedContact);
+    const hasPhone =
+      /whatsapp|wa\.me/.test(normalizedContact) ||
+      normalizedContact.replace(/\D/g, "").length >= 8;
+
+    if (hasEmail && hasPhone) {
+      return "Ambos";
+    }
+
+    if (hasEmail) {
+      return "Correo";
+    }
+
+    if (hasPhone) {
+      return "WhatsApp";
+    }
+
+    return undefined;
   }
 
   return (
@@ -548,32 +695,176 @@ export default function PublishPage() {
               </span>
             </label>
 
-            <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-              <div
-                className="flex-1"
-                onClick={() => {
-                  if (!isAgeConfirmed) {
-                    setError(ageConfirmationMessage);
-                  }
-                }}
-              >
+            <div className="mt-6 grid gap-3 lg:grid-cols-2">
+              <section className="rounded-md border border-[#7B3FE4]/45 bg-[#0B0B0F] p-4">
+                <p className="text-sm font-semibold text-white">
+                  Registrarme y publicar
+                </p>
+                <p className="mt-2 text-xs leading-5 text-zinc-400">
+                  Crea tu cuenta para guardar tus datos de contacto y preparar
+                  futuras funciones como mis anuncios, edición y verificación.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsRegisterSectionOpen(true);
+
+                    if (!isAgeConfirmed) {
+                      setError(ageConfirmationMessage);
+                    }
+                  }}
+                  disabled={isSubmitting}
+                  className="mt-4 inline-flex min-h-12 w-full items-center justify-center rounded-md bg-[#7B3FE4] px-5 py-3 text-sm font-semibold text-white shadow-[0_0_28px_rgba(123,63,228,0.26)] transition hover:bg-[#9F6BFF] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Registrarme y publicar
+                </button>
+              </section>
+
+              <section className="rounded-md border border-white/10 bg-[#0B0B0F] p-4">
+                <p className="text-sm font-semibold text-white">
+                  Publicar sin registro
+                </p>
+                <p className="mt-2 text-xs leading-5 text-zinc-400">
+                  Publicación rápida sin crear cuenta. No podrás administrar
+                  este anuncio después.
+                </p>
                 <button
                   type="submit"
+                  name="publishAction"
+                  value="guest"
+                  onClick={() => {
+                    if (!isAgeConfirmed) {
+                      setError(ageConfirmationMessage);
+                    }
+                  }}
                   disabled={!isAgeConfirmed || isSubmitting}
-                  className={`inline-flex min-h-12 w-full items-center justify-center rounded-md bg-[#7B3FE4] px-5 py-3 text-sm font-semibold text-white shadow-[0_0_28px_rgba(123,63,228,0.26)] transition hover:bg-[#9F6BFF] disabled:cursor-not-allowed disabled:opacity-60 ${
+                  className={`mt-4 inline-flex min-h-12 w-full items-center justify-center rounded-md border border-[#7B3FE4]/45 px-5 py-3 text-sm font-semibold text-white transition hover:border-[#9F6BFF] hover:bg-[#1A1A22] disabled:cursor-not-allowed disabled:opacity-60 ${
                     !isAgeConfirmed ? "pointer-events-none" : ""
                   }`}
                 >
-                  {isSubmitting ? "Publicando..." : "Publicar anuncio"}
+                  {isSubmitting && submittingAction === "guest"
+                    ? "Publicando..."
+                    : "Publicar sin registro"}
                 </button>
-              </div>
-              <Link
-                href="/"
-                className="inline-flex min-h-12 items-center justify-center rounded-md border border-[#7B3FE4]/45 px-5 py-3 text-sm font-semibold text-white transition hover:border-[#9F6BFF] hover:bg-[#0B0B0F]"
-              >
-                Cancelar
-              </Link>
+              </section>
             </div>
+
+            {isRegisterSectionOpen && (
+              <section className="mt-4 rounded-md border border-[#7B3FE4]/35 bg-[#0B0B0F] p-4">
+                <p className="text-sm font-semibold text-white">
+                  Datos para crear tu cuenta
+                </p>
+                <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                  <label className="block">
+                    <span className="text-sm font-medium text-white">
+                      Nombre visible
+                    </span>
+                    <input
+                      type="text"
+                      value={registerForm.nombreVisible}
+                      onChange={(event) =>
+                        updateRegisterField("nombreVisible", event.target.value)
+                      }
+                      className="mt-2 min-h-12 w-full rounded-md border border-white/10 bg-[#15151D] px-4 text-sm text-white outline-none transition focus:border-[#9F6BFF]"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-sm font-medium text-white">
+                      Correo electrónico
+                    </span>
+                    <input
+                      type="email"
+                      value={registerForm.email}
+                      onChange={(event) =>
+                        updateRegisterField("email", event.target.value)
+                      }
+                      className="mt-2 min-h-12 w-full rounded-md border border-white/10 bg-[#15151D] px-4 text-sm text-white outline-none transition focus:border-[#9F6BFF]"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-sm font-medium text-white">
+                      Contraseña
+                    </span>
+                    <input
+                      type="password"
+                      value={registerForm.password}
+                      onChange={(event) =>
+                        updateRegisterField("password", event.target.value)
+                      }
+                      className="mt-2 min-h-12 w-full rounded-md border border-white/10 bg-[#15151D] px-4 text-sm text-white outline-none transition focus:border-[#9F6BFF]"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-sm font-medium text-white">
+                      Confirmar contraseña
+                    </span>
+                    <input
+                      type="password"
+                      value={registerForm.confirmPassword}
+                      onChange={(event) =>
+                        updateRegisterField(
+                          "confirmPassword",
+                          event.target.value,
+                        )
+                      }
+                      className="mt-2 min-h-12 w-full rounded-md border border-white/10 bg-[#15151D] px-4 text-sm text-white outline-none transition focus:border-[#9F6BFF]"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-sm font-medium text-white">
+                      Teléfono / WhatsApp opcional
+                    </span>
+                    <input
+                      type="tel"
+                      value={registerForm.phone}
+                      onChange={(event) =>
+                        updateRegisterField("phone", event.target.value)
+                      }
+                      className="mt-2 min-h-12 w-full rounded-md border border-white/10 bg-[#15151D] px-4 text-sm text-white outline-none transition focus:border-[#9F6BFF]"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-sm font-medium text-white">
+                      Método de contacto
+                    </span>
+                    <select
+                      value={registerForm.contactMethod}
+                      onChange={(event) =>
+                        updateRegisterField(
+                          "contactMethod",
+                          event.target.value as ContactMethod,
+                        )
+                      }
+                      className="mt-2 min-h-12 w-full rounded-md border border-white/10 bg-[#15151D] px-4 text-sm text-white outline-none transition focus:border-[#9F6BFF]"
+                    >
+                      <option value="Correo">Correo</option>
+                      <option value="WhatsApp">WhatsApp</option>
+                      <option value="Ambos">Ambos</option>
+                    </select>
+                  </label>
+                </div>
+                <button
+                  type="submit"
+                  name="publishAction"
+                  value="registered"
+                  disabled={!isAgeConfirmed || isSubmitting}
+                  className={`mt-5 inline-flex min-h-12 w-full items-center justify-center rounded-md bg-[#7B3FE4] px-5 py-3 text-sm font-semibold text-white shadow-[0_0_28px_rgba(123,63,228,0.26)] transition hover:bg-[#9F6BFF] disabled:cursor-not-allowed disabled:opacity-60 ${
+                    !isAgeConfirmed ? "pointer-events-none" : ""
+                  }`}
+                >
+                  {isSubmitting && submittingAction === "registered"
+                    ? "Creando cuenta..."
+                    : "Crear cuenta y publicar"}
+                </button>
+              </section>
+            )}
+
+            <Link
+              href="/"
+              className="mt-3 inline-flex min-h-12 w-full items-center justify-center rounded-md border border-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:border-[#9F6BFF] hover:bg-[#0B0B0F]"
+            >
+              Cancelar
+            </Link>
           </form>
         </div>
       </section>

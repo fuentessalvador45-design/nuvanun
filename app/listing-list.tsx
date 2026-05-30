@@ -145,9 +145,11 @@ export function ListingList() {
             >
               <Link href={`/listing/${listing.id}`} className="block">
                 <div className="relative aspect-[16/11] border-b border-white/10 bg-[#0B0B0F]">
-                  <span className="absolute left-3 top-3 z-10 rounded-full border border-[#9F6BFF]/35 bg-[#0B0B0F]/80 px-3 py-1 text-xs font-semibold text-[#C7A8FF] backdrop-blur">
-                    ⭐ Destacado
-                  </span>
+                  {listing.isFeatured && (
+                    <span className="absolute left-3 top-3 z-10 rounded-full border border-[#9F6BFF]/35 bg-[#0B0B0F]/80 px-3 py-1 text-xs font-semibold text-[#C7A8FF] backdrop-blur">
+                      Destacado
+                    </span>
+                  )}
                   {listing.imageUrls[0] ? (
                     <Image
                       src={listing.imageUrls[0]}
