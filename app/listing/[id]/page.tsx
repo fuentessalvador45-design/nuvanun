@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AuthStatus } from "@/app/auth-status";
 import { ListingDetail } from "./listing-detail";
 
 export default async function ListingPage({
@@ -11,7 +12,7 @@ export default async function ListingPage({
   return (
     <main className="min-h-screen bg-[#0B0B0F] text-[#FFFFFF]">
       <section className="mx-auto flex min-h-screen w-full max-w-4xl flex-col px-5 py-6 sm:px-8 lg:px-10">
-        <header className="flex items-center justify-between py-2">
+        <header className="flex items-center justify-between gap-4 py-2">
           <Link
             href="/"
             className="text-sm font-semibold tracking-[0.28em] text-white"
@@ -19,12 +20,15 @@ export default async function ListingPage({
           >
             NUVANUN
           </Link>
-          <Link
-            href="/publish"
-            className="rounded-full border border-[#7B3FE4]/45 px-4 py-2 text-xs font-semibold text-white transition hover:border-[#9F6BFF] hover:bg-[#1A1A22]"
-          >
-            Publicar
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/publish"
+              className="rounded-full border border-[#7B3FE4]/45 px-4 py-2 text-xs font-semibold text-white transition hover:border-[#9F6BFF] hover:bg-[#1A1A22]"
+            >
+              Publicar
+            </Link>
+            <AuthStatus />
+          </div>
         </header>
 
         <div className="flex flex-1 flex-col justify-center py-12 sm:py-16">

@@ -36,6 +36,7 @@ export const locationCities = [
 
 export type Listing = {
   id: string;
+  ownerId?: string;
   title: string;
   category: string;
   subcategory?: string;
@@ -57,6 +58,7 @@ export type NewListingInput = {
   contact: string;
   images: File[];
   attendsTo?: string[];
+  ownerId?: string;
 };
 
 const mockListings: Listing[] = [
@@ -126,6 +128,7 @@ export async function createListing(input: NewListingInput): Promise<Listing> {
   const listing: Listing = {
     id: `local-${crypto.randomUUID()}`,
     title: input.title,
+    ownerId: input.ownerId,
     category: input.category,
     subcategory: input.subcategory,
     city: input.city,
@@ -176,6 +179,7 @@ async function tryCreateRemoteListing(
     const { data, error } = await supabase
       .from("listings")
       .insert({
+        owner_id: input.ownerId,
         title: input.title,
         category: input.category,
         subcategory: input.subcategory,
@@ -317,6 +321,7 @@ function mapRemoteListing(record: Record<string, unknown>): Listing | null {
 
   return normalizeListing({
     id,
+    ownerId: getString(record.owner_id) || getString(record.user_id) || undefined,
     title,
     category,
     subcategory: getString(record.subcategory) || undefined,

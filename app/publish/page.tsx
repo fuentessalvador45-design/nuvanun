@@ -3,6 +3,8 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { AuthStatus } from "@/app/auth-status";
+import { useAuth } from "@/app/auth-provider";
 import {
   type ChangeEvent,
   type FormEvent,
@@ -59,6 +61,7 @@ const initialForm: ListingForm = {
 
 export default function PublishPage() {
   const router = useRouter();
+  const { accessLevel, user } = useAuth();
   const [form, setForm] = useState<ListingForm>(initialForm);
   const [images, setImages] = useState<SelectedImage[]>([]);
   const [coverImageIndex, setCoverImageIndex] = useState(0);
@@ -216,6 +219,7 @@ export default function PublishPage() {
         ...trimmedForm,
         images: getOrderedImages(),
         attendsTo: form.attendsTo,
+        ownerId: user?.id,
       });
       router.push(`/listing/${listing.id}`);
     } catch (caughtError) {
@@ -233,7 +237,7 @@ export default function PublishPage() {
   return (
     <main className="min-h-screen bg-[#0B0B0F] text-[#FFFFFF]">
       <section className="mx-auto flex min-h-screen w-full max-w-5xl flex-col px-5 py-6 sm:px-8 lg:px-10">
-        <header className="flex items-center justify-between py-2">
+        <header className="flex items-center justify-between gap-4 py-2">
           <Link
             href="/"
             className="text-sm font-semibold tracking-[0.28em] text-white"
@@ -241,12 +245,15 @@ export default function PublishPage() {
           >
             NUVANUN
           </Link>
-          <Link
-            href="/"
-            className="rounded-full border border-[#7B3FE4]/45 px-4 py-2 text-xs font-semibold text-white transition hover:border-[#9F6BFF] hover:bg-[#1A1A22]"
-          >
-            Inicio
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/"
+              className="rounded-full border border-[#7B3FE4]/45 px-4 py-2 text-xs font-semibold text-white transition hover:border-[#9F6BFF] hover:bg-[#1A1A22]"
+            >
+              Inicio
+            </Link>
+            <AuthStatus />
+          </div>
         </header>
 
         <div className="grid flex-1 items-center gap-8 py-12 lg:grid-cols-[0.85fr_1.15fr] lg:py-16">
@@ -261,6 +268,19 @@ export default function PublishPage() {
               Prepara la informacion principal de tu anuncio. Las fotos y datos
               se guardan temporalmente en este navegador.
             </p>
+            <div className="mt-5 max-w-lg rounded-md border border-white/10 bg-[#15151D] p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#C7A8FF]">
+                Estado de cuenta
+              </p>
+              <p className="mt-2 text-sm leading-6 text-zinc-300">
+                {accessLevel === "guest" &&
+                  "Invitado: puedes publicar y navegar sin iniciar sesion."}
+                {accessLevel === "registered" &&
+                  "Registrado: este anuncio quedara preparado para asociarse a tu usuario."}
+                {accessLevel === "verified" &&
+                  "Verificado: tu perfil esta listo para futuras funciones de confianza."}
+              </p>
+            </div>
           </div>
 
           <form
