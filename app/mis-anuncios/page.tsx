@@ -10,14 +10,12 @@ import {
   getListingsByOwnerId,
   type Listing,
 } from "@/lib/listings";
-import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 
 export default function MisAnunciosPage() {
   const { accessLevel, isLoading: isAuthLoading, user } = useAuth();
   const [listings, setListings] = useState<Listing[]>([]);
   const [isLoadingListings, setIsLoadingListings] = useState(false);
   const [error, setError] = useState("");
-  const [authError, setAuthError] = useState("");
 
   useEffect(() => {
     if (!user) {
@@ -54,26 +52,6 @@ export default function MisAnunciosPage() {
       isMounted = false;
     };
   }, [user]);
-
-  async function signInWithGoogle() {
-    setAuthError("");
-
-    if (!supabase) {
-      setAuthError("Configura Supabase para iniciar sesion.");
-      return;
-    }
-
-    const { error: signInError } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}/mis-anuncios`,
-      },
-    });
-
-    if (signInError) {
-      setAuthError("No se pudo iniciar sesion con Google.");
-    }
-  }
 
   return (
     <main className="min-h-screen bg-[#0B0B0F] text-[#FFFFFF]">
@@ -124,21 +102,19 @@ export default function MisAnunciosPage() {
           {!isAuthLoading && !user && (
             <section className="rounded-lg border border-white/10 bg-[#1A1A22] p-5 shadow-[0_24px_80px_rgba(0,0,0,0.34)] sm:p-6">
               <p className="text-base font-semibold text-white">
-                Para ver tus anuncios necesitas iniciar sesión.
+                Registro con Google próximamente
+              </p>
+              <p className="mt-3 max-w-xl text-sm leading-6 text-zinc-400">
+                Esta sección permitirá administrar tus anuncios cuando el
+                registro esté activo.
               </p>
               <button
                 type="button"
-                onClick={signInWithGoogle}
-                disabled={!isSupabaseConfigured()}
+                disabled
                 className="mt-5 inline-flex min-h-12 w-full items-center justify-center rounded-md bg-[#7B3FE4] px-5 py-3 text-sm font-semibold text-white shadow-[0_0_28px_rgba(123,63,228,0.26)] transition hover:bg-[#9F6BFF] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
               >
-                Continuar con Google
+                Registro con Google próximamente
               </button>
-              {authError && (
-                <p className="mt-4 rounded-md border border-red-400/30 bg-red-950/30 px-4 py-3 text-sm text-red-200">
-                  {authError}
-                </p>
-              )}
             </section>
           )}
 
