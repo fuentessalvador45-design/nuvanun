@@ -126,6 +126,12 @@ export async function getListingById(id: string): Promise<Listing | null> {
   return listings.find((listing) => listing.id === id) ?? null;
 }
 
+export async function getListingsByOwnerId(ownerId: string): Promise<Listing[]> {
+  const listings = await getListings();
+
+  return listings.filter((listing) => listing.ownerId === ownerId);
+}
+
 export async function createListing(input: NewListingInput): Promise<Listing> {
   const images = input.images.slice(0, 3);
   const remoteListing = await tryCreateRemoteListing(input, images);

@@ -293,17 +293,19 @@ export default function PublishPage() {
     }
 
     try {
+      const shouldAssociateWithUser = Boolean(user) || action === "registered";
       const registeredUserId =
-        action === "registered"
+        action === "registered" && !user
           ? await createAccountIfAvailable(trimmedRegisterForm)
           : undefined;
       const listing = await createListing({
         ...trimmedForm,
         images: getOrderedImages(),
         attendsTo: form.attendsTo,
-        ownerId:
-          action === "registered" ? registeredUserId ?? user?.id : undefined,
-        userStatus: action === "registered" ? "registrado" : "invitado",
+        ownerId: shouldAssociateWithUser
+          ? user?.id ?? registeredUserId
+          : undefined,
+        userStatus: shouldAssociateWithUser ? "registrado" : "invitado",
         nombreVisible:
           action === "registered" ? trimmedRegisterForm.nombreVisible : undefined,
         emailContact:
