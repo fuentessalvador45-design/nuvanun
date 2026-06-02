@@ -112,11 +112,16 @@ const mockListings: Listing[] = [
 ];
 
 export async function getListings(): Promise<Listing[]> {
-  const remoteListings = await getRemoteListings();
+  if (isSupabaseConfigured()) {
+    const remoteListings = await getRemoteListings();
+
+    return dedupeListings([...remoteListings, ...mockListings]).map(
+      normalizeListing,
+    );
+  }
 
   return dedupeListings([
     ...getStoredListings(),
-    ...remoteListings,
     ...mockListings,
   ]).map(normalizeListing);
 }
@@ -134,11 +139,9 @@ export async function getListingsByOwnerId(ownerId: string): Promise<Listing[]> 
 
 export async function createListing(input: NewListingInput): Promise<Listing> {
   const images = input.images.slice(0, 3);
-  const remoteListing = await tryCreateRemoteListing(input, images);
 
-  if (remoteListing) {
-    storeListing(remoteListing);
-    return remoteListing;
+  if (isSupabaseConfigured()) {
+    return createRemoteListing(input, images);
   }
 
   const imageUrls = await Promise.all(images.map(readFileAsDataUrl));
@@ -176,23 +179,23 @@ async function getRemoteListings(): Promise<Listing[]> {
     const { data, error } = await supabase.from("listings").select("*");
 
     if (error || !data) {
-      return [];
+      throw new Error(getSupabaseErrorMessage(error, "leer anuncios"));
     }
 
     return data
       .map(mapRemoteListing)
       .filter((listing): listing is Listing => Boolean(listing));
-  } catch {
-    return [];
+  } catch (error) {
+    throw new Error(getUnknownErrorMessage(error, "leer anuncios"));
   }
 }
 
-async function tryCreateRemoteListing(
+async function createRemoteListing(
   input: NewListingInput,
   images: File[],
-): Promise<Listing | null> {
+): Promise<Listing> {
   if (!isSupabaseConfigured()) {
-    return null;
+    throw new Error("Supabase no esta configurado.");
   }
 
   try {
@@ -210,6 +213,7 @@ async function tryCreateRemoteListing(
         description: input.description,
         contact: input.contact,
         image_urls: imageUrls,
+        attends_to: input.attendsTo ?? [],
         user_status: input.userStatus ?? "invitado",
         nombre_visible: input.nombreVisible,
         email_contact: input.emailContact,
@@ -220,30 +224,18 @@ async function tryCreateRemoteListing(
       .single();
 
     if (!error && data) {
-      return withInputMetadata(mapRemoteListing(data), input);
+      const listing = withInputMetadata(mapRemoteListing(data), input);
+
+      if (listing) {
+        return listing;
+      }
+
+      throw new Error("Supabase devolvio un anuncio con campos incompletos.");
     }
 
-    const legacyInsert = await supabase
-      .from("listings")
-      .insert({
-        title: input.title,
-        category: input.category,
-        subcategory: input.subcategory,
-        zone: formatListingLocation(input),
-        description: input.description,
-        contact: input.contact,
-        image_urls: imageUrls,
-      })
-      .select("*")
-      .single();
-
-    if (legacyInsert.error || !legacyInsert.data) {
-      return null;
-    }
-
-    return withInputMetadata(mapRemoteListing(legacyInsert.data), input);
-  } catch {
-    return null;
+    throw new Error(getSupabaseErrorMessage(error, "publicar el anuncio"));
+  } catch (error) {
+    throw new Error(getUnknownErrorMessage(error, "publicar el anuncio"));
   }
 }
 
@@ -415,6 +407,26 @@ function getUserStatus(value: unknown) {
   }
 
   return undefined;
+}
+
+function getSupabaseErrorMessage(error: unknown, action: string) {
+  if (error && typeof error === "object" && "message" in error) {
+    const message = String(error.message);
+
+    if (message) {
+      return `Supabase no pudo ${action}: ${message}`;
+    }
+  }
+
+  return `Supabase no pudo ${action}.`;
+}
+
+function getUnknownErrorMessage(error: unknown, action: string) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return `Supabase no pudo ${action}.`;
 }
 
 function getFileExtension(file: File) {
