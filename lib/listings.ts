@@ -2,6 +2,7 @@ import { getSupabaseClient, isSupabaseConfigured } from "./supabase";
 
 const storageKey = "nuvanun:listings";
 const listingImagesBucket = "listing-images";
+export const maxListingImages = 5;
 
 export const listingCategories = ["Contactos", "Profesionales", "Contenido"];
 
@@ -138,7 +139,7 @@ export async function getListingsByOwnerId(ownerId: string): Promise<Listing[]> 
 }
 
 export async function createListing(input: NewListingInput): Promise<Listing> {
-  const images = input.images.slice(0, 3);
+  const images = input.images.slice(0, maxListingImages);
 
   if (isSupabaseConfigured()) {
     return createRemoteListing(input, images);
@@ -243,7 +244,7 @@ async function uploadListingImages(images: File[]): Promise<string[]> {
   const supabase = getSupabaseClient();
 
   return Promise.all(
-    images.slice(0, 3).map(async (image) => {
+    images.slice(0, maxListingImages).map(async (image) => {
       const path = `listings/${crypto.randomUUID()}.${getFileExtension(image)}`;
       const { error } = await supabase.storage
         .from(listingImagesBucket)
@@ -253,12 +254,20 @@ async function uploadListingImages(images: File[]): Promise<string[]> {
         });
 
       if (error) {
-        throw error;
+        throw new Error(
+          `No se pudo subir "${image.name}" al bucket ${listingImagesBucket}: ${getSupabaseErrorMessage(error, "subir la foto")}`,
+        );
       }
 
       const { data } = supabase.storage
         .from(listingImagesBucket)
         .getPublicUrl(path);
+
+      if (!data.publicUrl) {
+        throw new Error(
+          `Supabase no devolvio URL publica para "${image.name}" en ${listingImagesBucket}.`,
+        );
+      }
 
       return data.publicUrl;
     }),

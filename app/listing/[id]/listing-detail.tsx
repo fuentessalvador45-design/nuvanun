@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { useEffect, useState } from "react";
+import { ListingImage } from "@/app/listing-image";
 import {
   formatListingLocation,
   getListingById,
@@ -92,12 +92,10 @@ export function ListingDetail({ id }: { id: string }) {
               key={imageUrl}
               className="relative aspect-[4/3] overflow-hidden rounded-md border border-white/10 bg-[#0B0B0F]"
             >
-              <Image
+              <ListingImage
                 src={imageUrl}
                 alt={`${listing.title} foto ${index + 1}`}
-                fill
-                unoptimized
-                className="object-cover"
+                sizes="(max-width: 640px) 100vw, 33vw"
               />
             </div>
           ))}

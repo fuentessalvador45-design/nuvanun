@@ -1,9 +1,9 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { AuthStatus } from "@/app/auth-status";
+import { ListingImage } from "@/app/listing-image";
 import { useAuth } from "@/app/auth-provider";
 import {
   formatListingLocation,
@@ -146,24 +146,12 @@ export default function MisAnunciosPage() {
                       className="overflow-hidden rounded-lg border border-white/10 bg-[#15151D] shadow-[0_20px_55px_rgba(0,0,0,0.3)]"
                     >
                       <div className="relative aspect-[16/10] border-b border-white/10 bg-[#0B0B0F]">
-                        {listing.imageUrls[0] ? (
-                          <Image
-                            src={listing.imageUrls[0]}
-                            alt={listing.title}
-                            fill
-                            unoptimized
-                            className="object-cover"
-                          />
-                        ) : (
-                          <div className="flex h-full flex-col items-center justify-center px-5 text-center">
-                            <span className="text-xs font-semibold uppercase tracking-[0.36em] text-[#7B3FE4]">
-                              NUVANUN
-                            </span>
-                            <span className="mt-3 text-sm text-zinc-500">
-                              Sin foto principal
-                            </span>
-                          </div>
-                        )}
+                        <ListingImage
+                          src={listing.imageUrls[0]}
+                          alt={listing.title}
+                          sizes="(max-width: 640px) 100vw, 50vw"
+                          fallbackLabel="Sin foto principal"
+                        />
                       </div>
                       <div className="p-5">
                         <div className="flex flex-wrap gap-2">

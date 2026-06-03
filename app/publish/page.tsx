@@ -20,6 +20,7 @@ import {
   formatListingLocation,
   listingCategories,
   locationCities,
+  maxListingImages,
   professionalAttendsToOptions,
   type Listing,
 } from "@/lib/listings";
@@ -55,9 +56,9 @@ type RegisterForm = {
   contactMethod: ContactMethod;
 };
 
-const maxListingImages = 3;
 const ageConfirmationMessage =
   "Para publicar anuncios en NUVANUN debes confirmar que eres mayor de edad.";
+const maxListingImagesMessage = "Máximo 5 fotos por anuncio.";
 
 const initialForm: ListingForm = {
   title: "",
@@ -149,12 +150,13 @@ export default function PublishPage() {
     const availableSlots = maxListingImages - images.length;
 
     if (availableSlots <= 0) {
-      setError("Solo puedes agregar hasta 3 fotos.");
+      setError(maxListingImagesMessage);
       event.target.value = "";
       return;
     }
 
-    const files = Array.from(event.target.files ?? []).slice(0, availableSlots);
+    const selectedFiles = Array.from(event.target.files ?? []);
+    const files = selectedFiles.slice(0, availableSlots);
 
     if (files.length === 0) {
       event.target.value = "";
@@ -168,7 +170,9 @@ export default function PublishPage() {
         previewUrl: URL.createObjectURL(file),
       })),
     ]);
-    setError("");
+    setError(
+      selectedFiles.length > availableSlots ? maxListingImagesMessage : "",
+    );
     event.target.value = "";
   }
 
@@ -574,12 +578,16 @@ export default function PublishPage() {
               <input
                 type="file"
                 accept="image/*"
+                multiple
                 onChange={handleImageChange}
                 disabled={images.length >= maxListingImages}
                 className="mt-2 min-h-12 w-full rounded-md border border-white/10 bg-[#0B0B0F] px-4 py-3 text-sm text-zinc-300 outline-none transition file:mr-4 file:rounded-md file:border-0 file:bg-[#7B3FE4] file:px-3 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-[#9F6BFF] focus:border-[#9F6BFF]"
               />
               <span className="mt-2 block text-xs leading-5 text-zinc-500">
-                Hasta 3 fotos. Se mostraran en el anuncio publicado.
+                Sube hasta 5 fotos. La primera será la portada principal.
+              </span>
+              <span className="mt-1 block text-xs font-semibold text-zinc-400">
+                {images.length}/{maxListingImages} fotos seleccionadas
               </span>
             </label>
 

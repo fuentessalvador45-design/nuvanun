@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { useEffect, useState } from "react";
+import { ListingImage } from "@/app/listing-image";
 import {
   formatListingLocation,
   getListings,
@@ -150,24 +150,12 @@ export function ListingList() {
                       Destacado
                     </span>
                   )}
-                  {listing.imageUrls[0] ? (
-                    <Image
-                      src={listing.imageUrls[0]}
-                      alt={listing.title}
-                      fill
-                      unoptimized
-                      className="object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-full flex-col items-center justify-center px-5 text-center">
-                      <span className="text-xs font-semibold uppercase tracking-[0.36em] text-[#7B3FE4]">
-                        NUVANUN
-                      </span>
-                      <span className="mt-3 text-sm text-zinc-500">
-                        Sin foto principal
-                      </span>
-                    </div>
-                  )}
+                  <ListingImage
+                    src={listing.imageUrls[0]}
+                    alt={listing.title}
+                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                    fallbackLabel="Sin foto principal"
+                  />
                 </div>
               </Link>
               <div className="p-5">
